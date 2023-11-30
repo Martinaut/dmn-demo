@@ -14,6 +14,8 @@ import org.kie.dmn.api.core.DMNRuntime;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,14 +48,27 @@ public class App {
 
         // Obtain DMN runtime
         DMNRuntime runtime = KieRuntimeFactory.of(container.getKieBase()).get(DMNRuntime.class);
+        runtime.addListener(new DMNDebugListener());
 
         // Get model
-        var model = runtime.getModel("https://dke.jku.at/dmn3", "Model3");
+        var model = runtime.getModel("http://dke.jku.at/dmn", "Traffic Violation");
+
+        // Create input data
+        var ctx = runtime.newContext();
+        ctx.set("Driver", new HashMap<String, Object>() {{
+            put("Name", "Max Muster");
+            put("City", "Vienna");
+            put("Age", "25");
+            put("Points", "1");
+        }});
+        ctx.set("Violation", new HashMap<String, Object>() {{
+            put("Actual Speed", "100");
+            put("Speed Limit", "50");
+            put("Type", "speed");
+            put("Date", new Date());
+        }});
 
         // Execute
-        var ctx = runtime.newContext();
-        ctx.set("AgeOfPerson", 5);
-        ctx.set("SomeData", "A");
         var result = runtime.evaluateAll(model, ctx);
 
         // Print result
@@ -69,7 +84,9 @@ public class App {
         buf.append(resultToString("WARNING", result.getMessages(DMNMessage.Severity.WARN)));
         buf.append(resultToString("ERROR", result.getMessages(DMNMessage.Severity.ERROR)));
 
-        buf.append("=============================================================================================================")
+        buf.append("=============================================================================================================").append(System.lineSeparator())
+                .append("DECISIONS").append(System.lineSeparator())
+                .append("=============================================================================================================")
                 .append(System.lineSeparator());
         buf.append(String.format("%-40s%-60s%-15s", "ID", "Name", "Status")).append(System.lineSeparator());
         for (var dr : result.getDecisionResults()) {
@@ -113,9 +130,6 @@ public class App {
 
             if (msg.getException() != null)
                 buf.append("\t").append(msg.getException()).append(System.lineSeparator());
-
-//            buf.append("-------------------------------------------------------------------------------------------------------------")
-//                    .append(System.lineSeparator());
         }
 
         buf.append("=============================================================================================================")
